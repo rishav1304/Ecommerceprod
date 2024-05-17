@@ -1,110 +1,50 @@
-# Import libraries
+# Import Libraries
 import streamlit as st
 import requests
-from pydantic import BaseModel
 
-# Define the FastAPI endpoint URL
-fastapi_url = "https://ecommerce-recommendation-chatbot-7emkch5d3q-uc.a.run.app/"
+# Set up Streamlit app
+st.title("Ecommerce Product Recommendation with ChatGPT")
 
-def main():
-    # Sidebar contents
-    
-    st.sidebar.title("Product Recommendation App Demo")
-    st.sidebar.markdown('''
-        ## About
-        This app is an LLM-powered chatbot built using:
-        - [Streamlit](https://streamlit.io/)
-        - [LangChain](https://python.langchain.com/)
-        - [OpenAI](https://platform.openai.com/docs/models) LLM model
-        
-        You can use the two methods listed below to use this application.
-    
-        ''')
+# Define the FastAPI server URL
+api_url = "http://127.0.0.1:8000"
 
-    def manual():
-        st.header('🛍️ Product Recommendation App 🛍️')
-        st.write('')
-        st.write('Please fill in the fields below.')
-        st.write('')
+# Sidebar for manual input
+st.sidebar.header("Manual Product Recommendation")
+department = st.sidebar.text_input("Product Department")
+category = st.sidebar.text_input("Product Category")
+brand = st.sidebar.text_input("Product Brand")
+price = st.sidebar.text_input("Maximum Price Range")
 
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            department = st.text_input("Product Department: ")
-        with col2:
-            category = st.text_input("Product Category: ")
-        with col3:
-            brand = st.text_input("Product Brand: ")
-        with col4:
-            price = st.number_input("Maximum price: ",min_value=0, max_value=1000)
-        if st.button('Get recommendations'):
-            with st.spinner("Just a moment..."):
-                # Make a request to FastAPI endpoint
-                item = {
-                    'department': department,
-                    'category': category,
-                    'brand': brand,
-                    'price': f"${price}"
-                }
-                response = requests.post(fastapi_url +"/manual", json=item)
-                
-                # Check if the request was successful
-                if response.status_code == 200:
-                    result = response.json()
-                    # Convert the list to a single string
-                    result_string = '\n'.join(result)
-                    # Remove index and brackets
-                    result_cleaned = result_string.replace('[', '').replace('0:', '').replace(']', '')
-                    st.success(result_cleaned)
-                else:
-                    st.error("Error fetching answer. Please try again.")
+if st.sidebar.button("Get Recommendations"):
+    # Send a request to the /manual endpoint
+    manual_payload = {
+        "department": department,
+        "category": category,
+        "brand": brand,
+        "price": price
+    }
+    response = requests.post(f"{api_url}/manual", json=manual_payload)
+    if response.status_code == 200:
+        st.sidebar.success("Recommendations received!")
+        recommendations = response.json()
+        st.sidebar.write(recommendations)
+    else:
+        st.sidebar.error("Error fetching recommendations")
 
-    def chatbot():
-        class Message(BaseModel):
-            actor: str
-            payload : str
-        
-        # Title
-        st.header("🤖 Product Recommendation Chatbot 🤖")
+# Main area for chatbot interaction
+st.header("Chatbot Product Recommendation")
+query = st.text_input("Ask a question to the chatbot")
 
-        user = "User"
-        assistant = "Assistant"
-        message = "Messages"
+if st.button("Get Answer"):
+    # Send a request to the /chatbot endpoint
+    chatbot_payload = {"query": query}
+    response = requests.post(f"{api_url}/chatbot", json=chatbot_payload)
+    if response.status_code == 200:
+        st.success("Answer received!")
+        answer = response.json()
+        st.write(answer)
+    else:
+        st.error("Error fetching answer")
 
-        if message not in st.session_state:
-            st.session_state[message] = [Message(actor = assistant,
-                                                 payload= "Hi!How can I help you? 😀")]
-
-        msg: Message
-        for msg in st.session_state[message]:
-            st.chat_message(msg.actor).write(msg.payload)
-
-        # Prompt
-        prompt: str = st.chat_input("Enter a prompt here")
-
-        # Response
-        response = requests.post(fastapi_url +"/chatbot", json={"query": prompt})
-        result = response.json()
-        result_string = '\n'.join(result)
-        result_cleaned = result_string.replace('[', '').replace('0:', '').replace(']', '')
-
-        if prompt:
-             st.session_state[message].append(Message(actor=user,payload = prompt))
-             st.chat_message(user).write(prompt)
-             st.session_state[message].append(Message(actor=assistant,payload = result_cleaned))
-             st.chat_message(assistant).write(result_cleaned)
-
-    # Radio button to choose between manual or chatbot:
-    mode = st.sidebar.radio(" ", ["Manual Input 🛍️", "ChatBot 🤖"])
-
-    # Conditionally display the appropriate prediction form
-    if mode == "Manual Input 🛍️":
-        manual()
-    elif mode == "ChatBot 🤖":
-        chatbot()
-    st.sidebar.markdown(''' 
-                        ## Created by: 
-                        Ahmad Luay Adnani - [GitHub](https://github.com/ahmadluay9) 
-                        ''')
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    st.write("Streamlit app is ready to interact with the FastAPI backend.")
